@@ -14,6 +14,8 @@ class Tipo(StrEnum):
     LUOGO_NASCITA = "LUOGO_NASCITA"
     DOCUMENTO = "DOCUMENTO"
     MATRICOLA = "MATRICOLA"
+    CODICE_CLIENTE = "CODICE_CLIENTE"  # codice cliente, conto contrattuale, POD, PDR
+    CONTO = "CONTO"  # numero di conto corrente senza IBAN
     # Dai "sempre da mascherare" dell'utente che non sono nomi di persona.
     DATO = "DATO"
     # Categorie particolari (art. 9 GDPR) e dati giudiziari (art. 10): solo segnalati.

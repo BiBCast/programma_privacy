@@ -12,3 +12,6 @@ __pycache__/
 # Output di PyInstaller e Inno Setup (gli script stanno in packaging/)
 build/
 dist/
+
+# Tesseract per lo sviluppo e per il pacchetto (non va nel repository)
+vendor/

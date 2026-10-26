@@ -7,6 +7,7 @@ tra entità si risolvono dopo, in base alla priorità.
 import re
 
 from anonimizzatore.rilevamento.modelli import Azione, Entita, Priorita, Tipo
+from anonimizzatore.risorse import elenco
 
 _FONTE = "regola"
 
@@ -144,7 +145,8 @@ _EMAIL_GENERICHE = frozenset({
     "info", "amministrazione", "segreteria", "protocollo", "ufficio", "contatti", "privacy",
     "pec", "posta", "direzione", "commerciale", "vendite", "supporto", "assistenza", "noreply",
     "no-reply", "personale", "contabilita", "fatture", "fatturazione", "ordini", "acquisti",
-    "clienti",
+    "clienti", "anagrafe", "urp", "tributi", "ragioneria", "servizi", "comune", "sindaco",
+    "servizioclienti", "assistenzaclienti", "helpdesk",
 })  # fmt: skip
 
 
@@ -172,7 +174,8 @@ def trova_telefoni(testo: str) -> list[Entita]:
         cifre = sum(c.isdigit() for c in numero)
         # Fissi da almeno 8 cifre: sotto sono quasi sempre matricole o codici con zeri davanti.
         minimo, massimo = (9, 10) if numero.startswith("3") else (8, 11)
-        if not minimo <= cifre <= massimo or _FORMA_DATA.fullmatch(numero):
+        # Una data, anche seguita dall'ora ("07-09-2026 14:27"), non è un telefono.
+        if not minimo <= cifre <= massimo or _FORMA_DATA.search(numero):
             continue
         if numero.isdigit() and len(numero) == 11 and piva_valida(numero):
             continue  # è una partita IVA che inizia con 0
@@ -205,16 +208,23 @@ _CAP_COMUNE = (
 )
 _INDIRIZZO = re.compile(
     rf"(?<![\w])(?:(?i:{_TOPONIMI})\s+{_NOME_VIA}{_CIVICO}(?:\s*[,-]?\s*{_CAP_COMUNE})?"
-    rf"|(?<!\d){_CAP_COMUNE})"
+    rf"|(?<![\d,.]){_CAP_COMUNE})"
 )
 
 
 def trova_indirizzi(testo: str) -> list[Entita]:
     # Azione "segnala": diventa "maschera" solo se l'indirizzo è di una persona (vicinanza).
-    return [
-        _entita(m, Tipo.INDIRIZZO, Priorita.REGOLA, Azione.SEGNALA)
-        for m in _INDIRIZZO.finditer(testo)
-    ]
+    trovati = []
+    for m in _INDIRIZZO.finditer(testo):
+        # CAP + comune da solo: la parola dopo le cinque cifre deve poter essere un comune, non
+        # "ORE" di "-57,38000 ORE" o "CAB" di "ABI 08450 CAB 10200".
+        if m[0][0].isdigit():
+            parola = m[0][5:].split()[0].casefold()
+            prima = testo[max(0, m.start() - 4) : m.start()].strip().casefold()
+            if parola in elenco("parole_comuni.txt") or prima in ("abi", "cab"):
+                continue
+        trovati.append(_entita(m, Tipo.INDIRIZZO, Priorita.REGOLA, Azione.SEGNALA))
+    return trovati
 
 
 # --- Documenti d'identità ---------------------------------------------------------------------
@@ -254,12 +264,12 @@ _PROVINCIA = r"(?:\s*\(\s*[A-Z]{2}\s*\))?"
 _NATO = r"(?i:nat[oa](?:/[ao])?)"
 _NASCITA = (
     re.compile(
-        rf"(?<![\w]){_NATO}\s+(?i:a|in)\s+(?P<luogo>{LUOGO}){_PROVINCIA}\s*,?\s*"
+        rf"(?<![\w]){_NATO}\s+(?i:a|ad|in)\s+(?P<luogo>{LUOGO}){_PROVINCIA}\s*,?\s*"
         rf"(?:(?i:il)\s+(?P<data>{DATA}))?"
     ),
     re.compile(
         rf"(?<![\w]){_NATO}\s+(?i:il)\s+(?P<data>{DATA})"
-        rf"(?:\s*,?\s*(?i:a|in)\s+(?P<luogo>{LUOGO}))?"
+        rf"(?:\s*,?\s*(?i:a|ad|in)\s+(?P<luogo>{LUOGO}))?"
     ),
 )
 # Parole maiuscole che nei testi tutti maiuscoli seguono il luogo: "NATO A PADOVA IL …".
@@ -291,6 +301,75 @@ def taglia_coda(testo: str, inizio: int, fine: int, scarta: frozenset[str]) -> i
     return inizio + parole[-1].end() if parole else inizio
 
 
+# --- Codici letti male dall'OCR ---------------------------------------------------------------
+# Nelle scansioni l'OCR confonde lettere e cifre che si somigliano (O e 0, I e 1, B e 8…) e
+# aggiunge spazi. Un codice si corregge solo dove il formato vuole una cifra o una lettera, e si
+# accetta solo se il carattere di controllo torna: così una sequenza qualsiasi non diventa un
+# codice per caso.
+
+_A_LETTERA = str.maketrans("012345678", "OIZEASGTB")
+# Nelle posizioni numeriche del codice fiscale L, M, N, P, Q, R, S, T, U, V sono omocodia
+# valida: si correggono solo le lettere che non possono stare lì.
+_A_CIFRA_CF = str.maketrans("ODIZBG", "001286")
+_A_CIFRA = str.maketrans("OoDIlZSB", "00011258")
+_LETTERE_CF = {0, 1, 2, 3, 4, 5, 8, 11, 15}
+_CF_COMPATTO = re.compile(
+    rf"[A-Z]{{6}}[{_NUM}]{{2}}[ABCDEHLMPRST][{_NUM}]{{2}}[A-Z][{_NUM}]{{3}}[A-Z]"
+)
+# Inizio possibile di un codice ad ogni posizione: la ricerca deve poter sovrapporre i candidati.
+_CF_OCR = re.compile(r"(?<![A-Za-z0-9])(?=([A-Za-z0-9](?: ?[A-Za-z0-9]){15})(?![A-Za-z0-9]))")
+_IBAN_OCR = re.compile(r"(?<![A-Za-z0-9])(?=([I1l][T7](?: ?[A-Za-z0-9]){25})(?![A-Za-z0-9]))")
+_PIVA_OCR = re.compile(
+    r"(?i:p\.? ?iva|partita\s+iva)\s*[:.]?\s*(?:IT ?)?([0-9OoIl]{11})(?![0-9A-Za-z])"
+)
+
+
+def trova_codici_letti_male(testo: str, gia_trovati: list[Entita]) -> list[Entita]:
+    # Conta solo dove c'è già un codice: un telefono trovato per sbaglio dentro un IBAN letto
+    # male non deve impedire di riconoscere l'IBAN (che vince poi per priorità).
+    codici = {Tipo.CODICE_FISCALE, Tipo.IBAN, Tipo.PARTITA_IVA}
+    occupati = [(e.inizio, e.fine) for e in gia_trovati if e.tipo in codici]
+    trovati: list[Entita] = []
+
+    def libero(inizio: int, fine: int) -> bool:
+        intervalli = occupati + [(e.inizio, e.fine) for e in trovati]
+        return not any(a < fine and inizio < b for a, b in intervalli)
+
+    for m in _CF_OCR.finditer(testo):
+        candidato = m[1]
+        if sum(c.isdigit() for c in candidato) < 3 or not libero(m.start(1), m.end(1)):
+            continue
+        compatto = candidato.replace(" ", "").upper()
+        corretto = "".join(
+            c.translate(_A_LETTERA if i in _LETTERE_CF else _A_CIFRA_CF)
+            for i, c in enumerate(compatto)
+        )
+        if corretto != candidato and _CF_COMPATTO.fullmatch(corretto) and cf_valido(corretto):
+            trovati.append(_entita(m, Tipo.CODICE_FISCALE, Priorita.REGOLA_VALIDATA, gruppo=1))
+
+    for m in _IBAN_OCR.finditer(testo):
+        if not libero(m.start(1), m.end(1)):
+            continue
+        compatto = m[1].replace(" ", "")
+        corretto = (
+            "IT"
+            + compatto[2:4].translate(_A_CIFRA)
+            + compatto[4].upper().translate(_A_LETTERA)
+            + compatto[5:15].translate(_A_CIFRA)
+            + compatto[15:].upper()
+        )
+        if _IBAN_IT.fullmatch(corretto) and iban_valido(corretto):
+            trovati.append(_entita(m, Tipo.IBAN, Priorita.REGOLA_VALIDATA, gruppo=1))
+
+    for m in _PIVA_OCR.finditer(testo):
+        cifre = m[1].translate(_A_CIFRA)
+        if cifre != m[1] and cifre.isdigit() and piva_valida(cifre) and libero(*m.span(1)):
+            trovati.append(
+                _entita(m, Tipo.PARTITA_IVA, Priorita.REGOLA_VALIDATA, Azione.SEGNALA, 1)
+            )
+    return trovati
+
+
 # --- Insieme ----------------------------------------------------------------------------------
 
 _TUTTE = (
@@ -307,7 +386,74 @@ _TUTTE = (
 
 def trova(testo: str) -> list[Entita]:
     entita = [e for funzione in _TUTTE for e in funzione(testo)]
+    entita += trova_codici_letti_male(testo, entita)
+    entita += trova_codici_fiscali_dopo_etichetta(testo, entita)
+    entita += trova_date_dal_codice_fiscale(testo, entita)
     return sorted(entita, key=lambda e: (e.inizio, -e.fine))
+
+
+# --- Codice fiscale dopo l'etichetta e data di nascita dal codice -----------------------------
+
+_CF_ETICHETTA = re.compile(
+    r"(?i:codice\s+fiscale|cod\.?\s*fisc\.?|c\.\s?f\.|\bcf\b)\s*[:.]?\s*"
+    r"(?P<v>[A-Za-z0-9]{15,17})(?![A-Za-z0-9])"
+)
+
+
+def trova_codici_fiscali_dopo_etichetta(testo: str, gia_trovati: list[Entita]) -> list[Entita]:
+    """Dopo "codice fiscale" anche un codice di 15–17 caratteri: l'OCR ne aggiunge o ne perde.
+
+    Se togliendo un carattere esce un codice valido, il codice è sicuro; altrimenti basta la
+    forma (lettere e almeno 4 cifre), perché subito dopo l'etichetta c'è comunque un codice.
+    """
+    fiscali = [e for e in gia_trovati if e.tipo == Tipo.CODICE_FISCALE]
+    trovati = []
+    for m in _CF_ETICHETTA.finditer(testo):
+        valore = m["v"]
+        if any(e.inizio < m.end("v") and m.start("v") < e.fine for e in fiscali):
+            continue
+        if len(valore) == 16 or sum(c.isdigit() for c in valore) < 4:
+            continue  # 16 caratteri: se era valido l'hanno già trovato le altre regole
+        varianti = {valore[:i] + valore[i + 1 :] for i in range(len(valore))}
+        validi = len(valore) == 17 and any(
+            _CF_COMPATTO.fullmatch(v.upper()) and cf_valido(v) for v in varianti
+        )
+        priorita = Priorita.REGOLA_VALIDATA if validi else Priorita.ETICHETTA
+        trovati.append(_entita(m, Tipo.CODICE_FISCALE, priorita, gruppo="v"))
+    return trovati
+
+
+_MESI_CF = "ABCDEHLMPRST"
+_OMOCODIA = str.maketrans("LMNPQRSTUV", "0123456789")
+_DATA_NUMERICA = re.compile(r"(?<![\d])(\d{1,2})\s?[./-]\s?(\d{1,2})\s?[./-]\s?(\d{4}|\d{2})(?!\d)")
+
+
+def data_dal_codice_fiscale(cf: str) -> tuple[int, int, int] | None:
+    """Giorno, mese e ultime due cifre dell'anno di nascita codificati nel codice fiscale."""
+    cf = cf.replace(" ", "").upper()
+    if not _CF_COMPATTO.fullmatch(cf):
+        return None
+    anno = int(cf[6:8].translate(_OMOCODIA))
+    mese = _MESI_CF.index(cf[8]) + 1
+    giorno = int(cf[9:11].translate(_OMOCODIA))
+    return (giorno - 40 if giorno > 40 else giorno), mese, anno
+
+
+def trova_date_dal_codice_fiscale(testo: str, gia_trovati: list[Entita]) -> list[Entita]:
+    """Ogni data uguale a quella di nascita di un codice fiscale del documento è una data di
+    nascita, anche lontana dalla sua etichetta (le buste paga mettono le etichette in una riga
+    e i valori in un'altra)."""
+    nascite = {
+        data
+        for e in gia_trovati
+        if e.tipo == Tipo.CODICE_FISCALE and (data := data_dal_codice_fiscale(e.valore))
+    }
+    trovati = []
+    for m in _DATA_NUMERICA.finditer(testo):
+        giorno, mese, anno = int(m[1]), int(m[2]), int(m[3]) % 100
+        if (giorno, mese, anno) in nascite:
+            trovati.append(_entita(m, Tipo.DATA_NASCITA, Priorita.REGOLA_VALIDATA))
+    return trovati
 
 
 def _entita(

@@ -47,9 +47,25 @@ _ETICHETTE: list[tuple[str, Tipo, Azione]] = [
     # "Indirizzo" può essere quello di un'azienda: decide la vicinanza a una persona.
     (r"indirizzo", Tipo.INDIRIZZO, Azione.SEGNALA),
     (r"tel\.|tel|telefono|cell\.|cell|cellulare|mobile", Tipo.TELEFONO, Azione.MASCHERA),
+    (
+        r"codice\s+cliente|cod\.\s?cliente|n\.\s?cliente|numero\s+cliente|codice\s+utente"
+        r"|codice\s+utenza|conto\s+contrattuale|codice\s+contratto|pod|pdr",
+        Tipo.CODICE_CLIENTE,
+        Azione.MASCHERA,
+    ),
+    (r"c/c|c\.c\.|conto\s+corrente|n\.\s?conto", Tipo.CONTO, Azione.MASCHERA),
 ]
+# Dopo "residente in" l'indirizzo può andare a capo: "…residente in\nVia Nazario Sauro".
+_VALORE_A_CAPO = _VALORE.replace("[ \\t]*(?P<v>", "[ \\t]*(?:\\n[ \\t]*)?(?P<v>", 1)
 _COMPILATE = [
-    (re.compile(rf"(?<![\w])(?P<etichetta>(?i:{etichetta}))(?![A-Za-zÀ-ÿ]){_VALORE}"), tipo, azione)
+    (
+        re.compile(
+            rf"(?<![\w])(?P<etichetta>(?i:{etichetta}))(?![A-Za-zÀ-ÿ])"
+            + (_VALORE_A_CAPO if (tipo, azione) == (Tipo.INDIRIZZO, Azione.MASCHERA) else _VALORE)
+        ),
+        tipo,
+        azione,
+    )
     for etichetta, tipo, azione in _ETICHETTE
 ]
 # "Cognome: Rossi" e "Nome: Mario" così vicini sono la stessa persona.
@@ -165,6 +181,21 @@ def _matricola(testo: str, inizio: int, fine: int) -> Intervallo:
     return None
 
 
+def _codice_cliente(testo: str, inizio: int, fine: int) -> Intervallo:
+    m = re.match(r"(?:n\.?\s*)?([A-Za-z0-9][A-Za-z0-9/-]*)", testo[inizio:fine])
+    if m and sum(c.isdigit() for c in m[1]) >= 5:
+        return inizio + m.start(1), inizio + m.end(1)
+    return None
+
+
+def _conto(testo: str, inizio: int, fine: int) -> Intervallo:
+    # "C/C 000000032224 A 17": cifre, eventualmente seguite da lettere e cifre del conto.
+    m = re.match(r"(?:n\.?\s*)?(\d[\dA-Za-z/-]*(?: [\dA-Z][\dA-Za-z/-]*){0,3})", testo[inizio:fine])
+    if m and sum(c.isdigit() for c in m[1]) >= 6:
+        return inizio + m.start(1), inizio + m.end(1)
+    return None
+
+
 def _data(testo: str, inizio: int, fine: int) -> Intervallo:
     m = re.match(DATA, testo[inizio:fine])
     return (inizio, inizio + m.end()) if m else None
@@ -203,6 +234,8 @@ _VALIDAZIONI: dict[Tipo, Callable[[str, int, int], Intervallo]] = {
     Tipo.LUOGO_NASCITA: _luogo,
     Tipo.INDIRIZZO: _indirizzo,
     Tipo.TELEFONO: _telefono,
+    Tipo.CODICE_CLIENTE: _codice_cliente,
+    Tipo.CONTO: _conto,
 }
 
 # --- Ricerca ----------------------------------------------------------------------------------
