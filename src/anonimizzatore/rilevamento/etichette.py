@@ -56,13 +56,35 @@ _TITOLI = (
     r"|prof\.(?:ssa)?|arch\."
 )
 _CORTESIA = r"(?:(?i:egr\.|egregio|gent\.(?:mo|ma|ile)?|gentile|spett\.(?:le)?)\s*)?"
-_NOMI_DOPO = r"(?P<v>[A-ZÀ-Ý][^\n\t|]{0,80})"
+# Solo le parole che possono formare un nome, così non si ingloba il titolo successivo.
+_NOMI_DOPO = (
+    r"(?P<v>[A-ZÀ-Ý][\w'’.-]*"
+    r"(?: (?:[A-ZÀ-Ý][\w'’.-]*|(?:de|di|da|del|della|dal|dalla|la|lo|van|von)(?![\w'’])"
+    r"|d['’]\S+)){0,4})"
+)
+_RUOLI_ATTI = (
+    r"(?:il|la|l['’]|lo)\s*(?:ricorrente|resistente|convenut[oa]|attore|attrice|appellante"
+    r"|appellat[oa]|testimone|teste|dichiarante|esponente|istante|imputat[oa]|indagat[oa]"
+    r"|creditore|creditrice|debitore|debitrice|locatore|locatrice|conduttore|conduttrice"
+    r"|comodante|comodatari[oa]|mandante|mandatari[oa]|delegat[oa]|delegante|tutore|tutrice"
+    r"|curatore|curatrice|erede|defunt[oa]|de\s+cuius)"
+    r"|in\s+persona\s+(?:del|della|di)(?:\s+(?:suo\s+)?(?:legale\s+rappresentante|amministratore"
+    r"(?:\s+unico)?|titolare|procuratore))?(?:\s+pro\s+tempore)?"
+    r"|nella\s+persona\s+(?:del|della|di)(?:\s+(?:legale\s+rappresentante|amministratore"
+    r"(?:\s+unico)?))?"
+    r"|(?:assistit[oa]|rappresentat[oa](?:\s+e\s+difes[oa])?|difes[oa])\s+da(?:ll['’]\s*avv\.?)?"
+    r"|(?:propost[oa]|promoss[oa]|presentat[oa])\s+da"
+    r"|conviene\s+in\s+giudizio|nei\s+confronti\s+di|contro"
+    r"|testimone\s*:|teste\s*:"
+)
 _PERSONE_SENZA_DUEPUNTI = [
     re.compile(rf"(?<![\w]){_CORTESIA}(?i:{_TITOLI})\s*{_NOMI_DOPO}"),
     re.compile(
         r"(?<![\w])(?i:(?:il|la|io)\s+sottoscritt[oa](?:/[ao])?|i\s+sottoscritti)\s*,?\s*"
         rf"(?:(?i:{_TITOLI})\s*)?{_NOMI_DOPO}"
     ),
+    # Ruoli e formule degli atti dopo cui viene un nome, anche se nessun elenco lo conosce.
+    re.compile(rf"(?<![\w])(?i:{_RUOLI_ATTI})\s*,?\s*(?:(?i:{_TITOLI})\s*)?{_NOMI_DOPO}"),
 ]
 
 # --- Validazioni ------------------------------------------------------------------------------
@@ -98,14 +120,32 @@ def fine_persona(testo: str, inizio: int, fine: int) -> Intervallo:
         particella = pulita.casefold() in _PARTICELLE and parole
         if not (nome or particella):
             break
+        # "OLUWASEUN MOKOENA DICHIARA DI AVER": dopo due parole del nome, il verbo lo chiude.
+        comune = len(parole) >= 2 and not particella and pulita.casefold() in comuni
+        if comune and not _e_cognome(pulita, _parola(parole[-1])):
+            break
         parole.append(parola)
         if pulita != parola[0] or len(parole) == 5:
             break  # una virgola o un punto finale chiudono il nome
     while parole and _parola(parole[-1]).casefold() in comuni | _PARTICELLE:
+        if len(parole) >= 2 and _e_cognome(_parola(parole[-1]), _parola(parole[-2])):
+            break
         parole.pop()
     if not parole or all(_parola(p).casefold() in comuni | _PARTICELLE for p in parole):
         return None
     return inizio, inizio + parole[-1].start() + len(_parola(parole[-1]))
+
+
+def _e_cognome(parola: str, precedente: str) -> bool:
+    """Una parola comune che è anche un cognome, dopo un nome: "Anna Gentile", "Xavier Gentile".
+
+    Non vale per le altre parole comuni: in "ROSSI MARIO DICHIARA" il verbo non è un cognome.
+    """
+    if not parola[0].isupper() or parola.casefold() in _PARTICELLE:
+        return False
+    return parola.casefold() in elenco("cognomi.txt") and precedente.casefold() not in elenco(
+        "parole_comuni.txt"
+    )
 
 
 def _parola(trovata: re.Match[str]) -> str:

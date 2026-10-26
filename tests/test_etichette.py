@@ -38,6 +38,39 @@ def test_persone(testo, atteso):
 
 
 @pytest.mark.parametrize(
+    "testo, atteso",
+    [
+        ("Il ricorrente Bolat Tane chiede", "Bolat Tane"),
+        ("assistito dall'avv. Kiri Kealoha, conviene", "Kiri Kealoha"),
+        ("Alfa S.r.l., in persona del legale rappresentante Nalani Dorje,", "Nalani Dorje"),
+        ("conviene in giudizio Ayelet Ozturk", "Ayelet Ozturk"),
+        ("Testimone: Oluwaseun Adebayo", "Oluwaseun Adebayo"),
+        ("il resistente Mario Rossi si è costituito", "Mario Rossi"),
+        ("IL SIGNOR OLUWASEUN MOKOENA DICHIARA DI AVER RICEVUTO", "OLUWASEUN MOKOENA"),
+    ],
+)
+def test_ruoli_degli_atti(testo, atteso):
+    assert valori(testo, Tipo.PERSONA) == [atteso]
+
+
+@pytest.mark.parametrize(
+    "testo",
+    [
+        "Il ricorrente, nato a Padova, chiede",
+        "ricorso contro Beta S.p.A.",
+        "denuncia contro Ignoti",
+    ],
+)
+def test_ruoli_degli_atti_senza_nome(testo):
+    assert valori(testo, Tipo.PERSONA) == []
+
+
+def test_piu_titoli_nella_stessa_frase():
+    testo = "La signora Marchetti e il dott. Fabbri hanno firmato; il sig. Mario Ferrara no."
+    assert valori(testo, Tipo.PERSONA) == ["Marchetti", "Fabbri", "Mario Ferrara"]
+
+
+@pytest.mark.parametrize(
     "testo",
     [
         "Nome del file: prova.txt",
