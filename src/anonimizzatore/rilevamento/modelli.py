@@ -43,3 +43,7 @@ class Entita:
     fonte: str  # "regola", "etichetta", "ner", …
     priorita: int
     azione: Azione = Azione.MASCHERA
+    # Solo per la propagazione: la persona a cui si riferisce ("mario rossi"), così riceve
+    # lo stesso pseudonimo anche se qui compare solo "Rossi".
+    persona: str = ""
+    nota: str = ""  # da mostrare in revisione, per esempio un'omonimia
