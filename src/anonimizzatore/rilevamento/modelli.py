@@ -14,6 +14,18 @@ class Tipo(StrEnum):
     LUOGO_NASCITA = "LUOGO_NASCITA"
     DOCUMENTO = "DOCUMENTO"
     MATRICOLA = "MATRICOLA"
+    # Dai "sempre da mascherare" dell'utente che non sono nomi di persona.
+    DATO = "DATO"
+    # Categorie particolari (art. 9 GDPR) e dati giudiziari (art. 10): solo segnalati.
+    DATO_SALUTE = "DATO_SALUTE"
+    DATO_SINDACALE = "DATO_SINDACALE"
+    DATO_POLITICO = "DATO_POLITICO"
+    DATO_RELIGIOSO = "DATO_RELIGIOSO"
+    DATO_SESSUALE = "DATO_SESSUALE"
+    DATO_ETNICO = "DATO_ETNICO"
+    DATO_BIOMETRICO = "DATO_BIOMETRICO"
+    DATO_GIUDIZIARIO = "DATO_GIUDIZIARIO"
+    DATO_SENSIBILE = "DATO_SENSIBILE"  # parole sensibili aggiunte dall'utente
 
 
 class Azione(StrEnum):
@@ -23,8 +35,9 @@ class Azione(StrEnum):
 
 
 class Priorita(IntEnum):
-    """Chi vince quando due entità si sovrappongono (la scelta la fa la risoluzione, in M4)."""
+    """Chi vince quando due entità si sovrappongono (la scelta la fa `risoluzione.risolvi`)."""
 
+    UTENTE = 1000  # una decisione dell'utente vince su tutto
     REGOLA_VALIDATA = 100
     REGOLA = 90
     ETICHETTA = 80

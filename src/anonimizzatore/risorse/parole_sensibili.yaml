@@ -1,0 +1,98 @@
+# Parole e frasi che indicano categorie particolari di dati (art. 9 GDPR) o dati giudiziari
+# (art. 10). Il programma non le maschera: le segnala in revisione e decide l'utente.
+#
+# Come si scrivono:
+# - minuscole e maiuscole sono equivalenti, tranne per le sigle scritte tutte maiuscole
+#   (CGIL, RSU…), che si cercano così come sono per non confondere "usb" con la porta USB;
+# - l'asterisco finale accetta qualunque desinenza: "malatti*" trova malattia e malattie;
+# - le parole di una frase possono essere separate da uno o più spazi.
+#
+# Elenco base curato dal responsabile del programma. Ogni utente può aggiungere le sue parole
+# dalla finestra degli elenchi personali.
+
+DATO_SALUTE:
+  - malatti*
+  - infortun*
+  - ricover*
+  - diagnos*
+  - certificat* medic*
+  - visita medica
+  - visite mediche
+  - invalidit*
+  - disabil*
+  - handicap
+  - legge 104
+  - l. 104
+  - l.104
+  - 104/92
+  - 104/1992
+  - categori* protett*
+  - l. 68/99
+  - legge 68/99
+  - gravidanz*
+  - maternità obbligatoria
+  - congedo di maternità
+  - terapi*
+  - patologi*
+  - tossicodipenden*
+  - alcoldipenden*
+
+DATO_SINDACALE:
+  - trattenut* sindacal*
+  - quot* sindacal*
+  - contribut* sindacal*
+  - permess* sindacal*
+  - iscritt* al sindacato
+  - RSU
+  - RSA
+  - CGIL
+  - CISL
+  - UIL
+  - UGL
+  - USB
+  - FIOM
+
+DATO_POLITICO:
+  - aspettativa per mandato elettivo
+  - mandato elettivo
+  - iscrizione a un partito
+  - iscritt* al partito
+  - carica politica
+
+DATO_RELIGIOSO:
+  - festività religios*
+  - confessione religiosa
+  - matrimonio concordatario
+  - credo religioso
+
+DATO_SESSUALE:
+  - unione civile
+  - unioni civili
+  - orientamento sessuale
+
+DATO_ETNICO:
+  - origine etnica
+  - etnia
+  - appartenenza etnica
+  - origine razziale
+
+DATO_BIOMETRICO:
+  - test genetic*
+  - dna
+  - impronte digitali
+  - dati biometrici
+
+DATO_GIUDIZIARIO:
+  - procediment* penal*
+  - imputat*
+  - indagat*
+  - condann*
+  - sentenz* penal*
+  - casellario giudiziale
+  - carichi pendenti
+  - reato
+  - reati
+  - misur* cautelar*
+  - patteggiament*
+  - custodia cautelare
+  - arresti domiciliari

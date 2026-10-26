@@ -37,10 +37,15 @@ def testo_chiave(chiave: frozenset[str]) -> str:
     return " ".join(sorted(chiave))
 
 
+def chiave_di(entita: Entita) -> frozenset[str]:
+    """La chiave della persona: quella indicata (propagazione, Cognome + Nome) o dal valore."""
+    return chiave_persona(entita.persona or entita.valore)
+
+
 def applica(testo: str, entita: list[Entita]) -> list[Entita]:
     """Nuove entità per le altre occorrenze delle persone già trovate."""
     persone = [e for e in entita if e.tipo == Tipo.PERSONA and e.azione == Azione.MASCHERA]
-    chiavi = {chiave_persona(p.valore) for p in persone} - {frozenset()}
+    chiavi = {chiave_di(p) for p in persone} - {frozenset()}
     # Una chiave contenuta in un'altra è la stessa persona scritta in modo più breve ("Rossi").
     complete = [c for c in chiavi if not any(c < altra for altra in chiavi)]
     if not complete:
@@ -118,6 +123,6 @@ def _unisci_vicine(testo: str, occorrenze: list[re.Match[str]]) -> list[list[re.
 def _distanza(posizione: int, chiave: frozenset[str], persone: list[Entita]) -> int:
     """Distanza dalla menzione più vicina di quella persona: decide le omonimie."""
     return min(
-        (abs(p.inizio - posizione) for p in persone if chiave_persona(p.valore) <= chiave),
+        (abs(p.inizio - posizione) for p in persone if chiave_di(p) <= chiave),
         default=10**9,
     )

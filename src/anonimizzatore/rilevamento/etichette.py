@@ -7,8 +7,10 @@ validazione che accorcia o scarta il valore.
 
 import re
 from collections.abc import Callable
+from dataclasses import replace
 
 from anonimizzatore.rilevamento.modelli import Azione, Entita, Priorita, Tipo
+from anonimizzatore.rilevamento.propagazione import chiave_persona, testo_chiave
 from anonimizzatore.rilevamento.regole import DATA, LUOGO, taglia_coda
 from anonimizzatore.risorse import elenco
 
@@ -47,9 +49,11 @@ _ETICHETTE: list[tuple[str, Tipo, Azione]] = [
     (r"tel\.|tel|telefono|cell\.|cell|cellulare|mobile", Tipo.TELEFONO, Azione.MASCHERA),
 ]
 _COMPILATE = [
-    (re.compile(rf"(?<![\w])(?i:{etichetta})(?![A-Za-zÀ-ÿ]){_VALORE}"), tipo, azione)
+    (re.compile(rf"(?<![\w])(?P<etichetta>(?i:{etichetta}))(?![A-Za-zÀ-ÿ]){_VALORE}"), tipo, azione)
     for etichetta, tipo, azione in _ETICHETTE
 ]
+# "Cognome: Rossi" e "Nome: Mario" così vicini sono la stessa persona.
+_DISTANZA_COGNOME_NOME = 80
 
 _TITOLI = (
     r"sig\.(?:ra|na)?|signor[ae]?|sigg\.|dott\.(?:ssa)?|dr\.|avv\.(?:to)?|ing\.|geom\.|rag\."
@@ -206,6 +210,7 @@ _VALIDAZIONI: dict[Tipo, Callable[[str, int, int], Intervallo]] = {
 
 def trova(testo: str) -> list[Entita]:
     trovate: dict[tuple[int, int, Tipo], Entita] = {}
+    parti: dict[tuple[int, int, Tipo], str] = {}  # entità venute da "Cognome:" o "Nome:"
 
     def aggiungi(m: re.Match[str], tipo: Tipo, azione: Azione) -> None:
         intervallo = _VALIDAZIONI[tipo](testo, m.start("v"), m.end("v"))
@@ -215,6 +220,9 @@ def trova(testo: str) -> list[Entita]:
                 inizio, fine, tipo, testo[inizio:fine], _FONTE, Priorita.ETICHETTA, azione
             )
             trovate.setdefault((inizio, fine, tipo), entita)
+            etichetta = (m.groupdict().get("etichetta") or "").casefold()
+            if tipo == Tipo.PERSONA and etichetta in ("cognome", "nome"):
+                parti[(inizio, fine, tipo)] = etichetta
 
     for espressione, tipo, azione in _COMPILATE:
         for m in espressione.finditer(testo):
@@ -222,4 +230,20 @@ def trova(testo: str) -> list[Entita]:
     for espressione in _PERSONE_SENZA_DUEPUNTI:
         for m in espressione.finditer(testo):
             aggiungi(m, Tipo.PERSONA, Azione.MASCHERA)
+    _unisci_cognome_e_nome(trovate, parti)
     return sorted(trovate.values(), key=lambda e: (e.inizio, -e.fine))
+
+
+def _unisci_cognome_e_nome(trovate: dict, parti: dict[tuple[int, int, Tipo], str]) -> None:
+    """Dà a "Cognome: Rossi" e al "Nome: Mario" più vicino la stessa chiave di persona."""
+    cognomi = [trovate[k] for k, parte in parti.items() if parte == "cognome"]
+    nomi = [trovate[k] for k, parte in parti.items() if parte == "nome"]
+    for cognome in sorted(cognomi, key=lambda e: e.inizio):
+        vicini = [n for n in nomi if abs(n.inizio - cognome.inizio) <= _DISTANZA_COGNOME_NOME]
+        if not vicini:
+            continue
+        nome = min(vicini, key=lambda n: abs(n.inizio - cognome.inizio))
+        nomi.remove(nome)
+        chiave = testo_chiave(chiave_persona(f"{nome.valore} {cognome.valore}"))
+        for e in (cognome, nome):
+            trovate[(e.inizio, e.fine, e.tipo)] = replace(e, persona=chiave)

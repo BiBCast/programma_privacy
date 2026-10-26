@@ -23,3 +23,18 @@ pytest
 ```
 
 Il numero di versione si cambia solo in `src/anonimizzatore/__init__.py`.
+
+## Provare da riga di comando
+
+Con l'ambiente attivo, anonimizza un file e scrive il risultato e un riepilogo senza valori
+originali:
+
+```bash
+python -m anonimizzatore documento.pdf --out anonimo.txt --report riepilogo.json
+```
+
+Misura quanti nomi del corpus sintetico vengono riconosciuti, per categoria:
+
+```bash
+python tests/misura_nomi.py 400 7
+```
