@@ -1,0 +1,20 @@
+Contratto di prova
+Il sottoscritto Mario Rossi	nato a Padova
+Importo: 2.000 euro
+Visibile
+Riga uno
+Riga due
+Cognome | ROSSI
+Nome | MARIO
+Testo prima della casella
+Casella: IBAN IT60X0542811101000000123456
+Pagina 1
+
+[Intestazione]
+Studio Esempio - riservato
+
+[Piè di pagina]
+Pagina di prova
+
+[Note]
+Nota: dato inventato
