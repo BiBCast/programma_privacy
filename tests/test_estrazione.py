@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from anonimizzatore.estrazione import DocumentoNonSupportato, estrai, normalizza
+from anonimizzatore.estrazione import DocumentoNonSupportato, estrai, normalizza, ocr
 from generatori.pdf import pdf_busta_paga, pdf_misto, pdf_protetto, pdf_scansionato
 from generatori.word import crea_docx, docx_completo, paragrafo, run, tabella
 
@@ -67,15 +67,17 @@ def test_pdf_conserva_le_colonne(tmp_path):
     assert risultato.avvisi == ()
 
 
-def test_pdf_scansionato_rifiutato(tmp_path):
+def test_pdf_scansionato_senza_ocr_rifiutato(tmp_path, monkeypatch):
+    monkeypatch.setattr(ocr, "disponibile", lambda: False)
     with pytest.raises(DocumentoNonSupportato, match="scansione"):
         estrai(pdf_scansionato(tmp_path / "scansione.pdf"))
 
 
-def test_pdf_con_una_pagina_senza_testo_da_un_avviso(tmp_path):
+def test_pdf_con_una_pagina_senza_testo_da_un_avviso(tmp_path, monkeypatch):
+    monkeypatch.setattr(ocr, "disponibile", lambda: False)
     risultato = estrai(pdf_misto(tmp_path / "misto.pdf"))
     assert "Prima pagina" in risultato.testo and "Terza pagina" in risultato.testo
-    assert len(risultato.avvisi) == 1 and "pagine 2" in risultato.avvisi[0]
+    assert len(risultato.avvisi) == 1 and "leggibile (2)" in risultato.avvisi[0]
 
 
 def test_pdf_protetto_rifiutato(tmp_path):

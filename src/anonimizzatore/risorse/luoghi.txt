@@ -118,7 +118,8 @@ valentia
 vicenza
 viterbo
 
-# Altre città frequenti
+# Altre città frequenti (anche quelle che sono nomi propri, come Alba: qui vale la città)
+alba
 mestre
 marghera
 chioggia

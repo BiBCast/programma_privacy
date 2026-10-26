@@ -52,7 +52,11 @@ class Analisi:
 
 
 def analizza(
-    testo: str, avvisi: tuple[str, ...] = (), elenchi: ElenchiUtente | None = None
+    testo: str,
+    avvisi: tuple[str, ...] = (),
+    elenchi: ElenchiUtente | None = None,
+    incerti: tuple[tuple[int, int], ...] = (),
+    letto_con_ocr: bool = False,
 ) -> Analisi:
     elenchi = elenchi_utente.carica() if elenchi is None else elenchi
     entita = [
@@ -64,9 +68,13 @@ def analizza(
     entita += propagazione.applica(testo, entita)
     # Dopo la propagazione tutte le persone sono note: si decide di chi sono P.IVA e indirizzi.
     entita = vicinanza.applica(testo, entita)
+    entita += _codici_sulla_riga_della_persona(testo, entita)
     entita += _mai_da_mascherare(testo, elenchi.mai)
     entita += sensibili.trova(testo, elenchi.sensibili)
-    entita += nomi.possibili(testo, entita)  # rete di sicurezza, per ultima
+    entita += nomi.possibili(testo, entita)  # rete di sicurezza
+    entita += _incerte(testo, incerti)  # parole lette male dall'OCR, per ultime
+    if letto_con_ocr:
+        entita += _iniziale_letta_male(testo, entita)
     scelte = risoluzione.risolvi(entita)
     segnaposto = pseudonimi.assegna(scelte)
     return Analisi(testo, tuple(map(Dato, scelte, segnaposto)), tuple(avvisi))
@@ -74,7 +82,9 @@ def analizza(
 
 def analizza_file(percorso: str | Path, elenchi: ElenchiUtente | None = None) -> Analisi:
     estratto = estrai(percorso)
-    return analizza(estratto.testo, estratto.avvisi, elenchi)
+    return analizza(
+        estratto.testo, estratto.avvisi, elenchi, estratto.incerti, estratto.letto_con_ocr
+    )
 
 
 def applica(analisi: Analisi, nota_per_ai: bool = True) -> str:
@@ -127,6 +137,89 @@ def _sempre_da_mascherare(testo: str, voci: tuple[str, ...]) -> list[Entita]:
         for m in _occorrenze(testo, voce):
             trovate.append(Entita(m.start(), m.end(), tipo, m[0], "utente", Priorita.UTENTE))
     return trovate
+
+
+def _incerte(testo: str, incerti: tuple[tuple[int, int], ...]) -> list[Entita]:
+    """Parole lette con poca sicurezza che potrebbero essere un nome o un codice: da valutare."""
+    trovate = []
+    for inizio, fine in incerti:
+        parola = testo[inizio:fine]
+        if len(parola) >= 3 and (parola[0].isupper() or any(c.isdigit() for c in parola)):
+            trovate.append(
+                Entita(
+                    inizio,
+                    fine,
+                    Tipo.DATO,
+                    parola,
+                    "ocr",
+                    Priorita.SEGNALAZIONE,
+                    Azione.SEGNALA,
+                    nota="Letto con poca sicurezza dalla scansione: controlla che non sia un dato.",
+                )
+            )
+    return trovate
+
+
+_NUMERO_ISOLATO = re.compile(r"(?<![\w.,/-])\d{4,10}(?![\w.,/-])")
+
+
+def _codici_sulla_riga_della_persona(testo: str, entita: list[Entita]) -> list[Entita]:
+    """Nelle buste paga le etichette stanno in una riga e i valori in un'altra:
+    "0004321   ROSSI MARIO   RSSMRA80A01H501U 007788". Su una riga con un nome mascherato
+    e un codice fiscale, i numeri isolati di 4–10 cifre sono codice dipendente e matricola.
+    """
+    occupati = [(e.inizio, e.fine) for e in entita]
+    trovati = []
+    inizio_riga = 0
+    for riga in testo.split("\n"):
+        fine_riga = inizio_riga + len(riga)
+        qui = [e for e in entita if inizio_riga <= e.inizio and e.fine <= fine_riga]
+        persona = any(e.tipo == Tipo.PERSONA and e.azione == Azione.MASCHERA for e in qui)
+        if persona and any(e.tipo == Tipo.CODICE_FISCALE for e in qui):
+            for m in _NUMERO_ISOLATO.finditer(riga):
+                inizio, fine = inizio_riga + m.start(), inizio_riga + m.end()
+                if not any(a < fine and inizio < b for a, b in occupati):
+                    trovati.append(
+                        Entita(inizio, fine, Tipo.MATRICOLA, m[0], "riga", Priorita.REGOLA)
+                    )
+        inizio_riga = fine_riga + 1
+    return trovati
+
+
+_INIZIALE_L = re.compile(r"l[a-zà-ÿ'’-]{2,}")
+
+
+def _iniziale_letta_male(testo: str, entita: list[Entita]) -> list[Entita]:
+    """L'OCR legge spesso la I maiuscola come "l": "loana [PERSONA_1]" era "Ioana Mancini".
+
+    Una parola che inizia per "l", attaccata a una persona mascherata, va tra i dati da
+    valutare: potrebbe essere il resto del nome.
+    """
+    persone = [e for e in entita if e.tipo == Tipo.PERSONA and e.azione == Azione.MASCHERA]
+    trovate = {}
+    for persona in persone:
+        prima = re.search(
+            r"(?<![\w'’])(\S+) $", testo[max(0, persona.inizio - 40) : persona.inizio]
+        )
+        dopo = re.match(r" (\S+)", testo[persona.fine : persona.fine + 40])
+        vicine = []
+        if prima:
+            vicine.append((persona.inizio - 1 - len(prima[1]), prima[1]))
+        if dopo:
+            vicine.append((persona.fine + 1, dopo[1].rstrip(".,;:")))
+        for inizio, parola in vicine:
+            if _INIZIALE_L.fullmatch(parola):
+                trovate[inizio] = Entita(
+                    inizio,
+                    inizio + len(parola),
+                    Tipo.PERSONA,
+                    parola,
+                    "ocr",
+                    Priorita.SEGNALAZIONE,
+                    Azione.SEGNALA,
+                    nota="Forse parte del nome letta male dalla scansione (I letta come l).",
+                )
+    return list(trovate.values())
 
 
 def _mai_da_mascherare(testo: str, voci: tuple[str, ...]) -> list[Entita]:

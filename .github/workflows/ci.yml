@@ -23,6 +23,10 @@ jobs:
       - name: Installa il progetto
         run: python -m pip install -e ".[dev]"
 
+      - name: Prepara Tesseract per i test di OCR
+        shell: pwsh
+        run: ./scripts/prepara_tesseract.ps1
+
       - name: Controllo stile
         run: |
           ruff check .

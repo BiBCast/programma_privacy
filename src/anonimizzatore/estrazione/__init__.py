@@ -16,6 +16,9 @@ from pathlib import Path
 class TestoEstratto:
     testo: str
     avvisi: tuple[str, ...] = ()
+    # Parole lette dall'OCR con poca sicurezza: intervalli nel testo.
+    incerti: tuple[tuple[int, int], ...] = ()
+    letto_con_ocr: bool = False  # almeno una pagina letta con il riconoscimento dei caratteri
 
 
 class DocumentoNonSupportato(Exception):
@@ -66,4 +69,6 @@ def estrai(percorso: str | Path) -> TestoEstratto:
     testo = normalizza(grezzo.testo)
     if not testo.strip():
         raise DocumentoNonSupportato("Il documento non contiene testo.")
-    return TestoEstratto(testo, grezzo.avvisi)
+    # Gli intervalli incerti valgono solo se la normalizzazione non ha spostato il testo.
+    incerti = grezzo.incerti if testo == grezzo.testo else ()
+    return TestoEstratto(testo, grezzo.avvisi, incerti, grezzo.letto_con_ocr)

@@ -37,6 +37,18 @@ _PREFISSI_LUOGO = frozenset({
     "castello", "borgo",
 })  # fmt: skip
 _PRIMA_DI_UN_LUOGO = re.compile(rf"(?i)(?<![\w])(?:{'|'.join(sorted(_PREFISSI_LUOGO))})\s+$")
+_DOPO_PREPOSIZIONE = re.compile(r"(?i)(?<![\w])(?:a|ad|in|di|da)\s+$")
+# Sigle delle province: "ALBA CN" e "Alba (CN)" sono luoghi, non persone.
+_PROVINCE = frozenset({
+    "AG", "AL", "AN", "AO", "AP", "AQ", "AR", "AT", "AV", "BA", "BG", "BI", "BL", "BN", "BO",
+    "BR", "BS", "BT", "BZ", "CA", "CB", "CE", "CH", "CL", "CN", "CO", "CR", "CS", "CT", "CZ",
+    "EN", "FC", "FE", "FG", "FI", "FM", "FR", "GE", "GO", "GR", "IM", "IS", "KR", "LC", "LE",
+    "LI", "LO", "LT", "LU", "MB", "MC", "ME", "MI", "MN", "MO", "MS", "MT", "NA", "NO", "NU",
+    "OR", "PA", "PC", "PD", "PE", "PG", "PI", "PN", "PO", "PR", "PT", "PU", "PV", "PZ", "RA",
+    "RC", "RE", "RG", "RI", "RM", "RN", "RO", "SA", "SI", "SO", "SP", "SR", "SS", "SU", "SV",
+    "TA", "TE", "TN", "TO", "TP", "TR", "TS", "TV", "UD", "VA", "VB", "VC", "VE", "VI", "VR",
+    "VT", "VV",
+})  # fmt: skip
 # Una riga tutta maiuscola con più parole di così è prosa ("DICHIARA DI AVER RICEVUTO…"):
 # le coppie maiuscole che contiene non si segnalano.
 _MAX_PAROLE_RIGA_MAIUSCOLA = 5
@@ -90,6 +102,8 @@ def _dal_modello(testo: str) -> list[Entita]:
         if a_capo != -1:
             fine = a_capo  # il nome finisce dove inizia la colonna successiva
         entita = _persona(testo, inizio, fine, "ner", Priorita.NER)
+        if entita:
+            entita = _nome_singolo_da_valutare(testo, entita)
         if entita:
             trovate.append(entita)
     return trovate
@@ -193,4 +207,35 @@ def _persona(testo: str, inizio: int, fine: int, fonte: str, priorita: int) -> E
     significative = [p for p in parole if p not in comuni]
     if all(p in elenco("luoghi.txt") for p in significative):
         return None
+    # Seguito da una sigla di società ("Zucchetti spa") o di provincia ("Alba (CN)"), o chiuso
+    # da una sigla di provincia ("ALBA CN"), è un'azienda o un luogo.
+    dopo = testo[fine : fine + 12]
+    if _SOCIETA_DOPO.match(dopo) or _provincia_dopo(dopo):
+        return None
+    if testo[inizio:fine].split()[-1] in _PROVINCE:
+        return None
     return Entita(inizio, fine, Tipo.PERSONA, testo[inizio:fine], fonte, priorita)
+
+
+def _provincia_dopo(testo: str) -> bool:
+    m = re.match(r"\s*\(?\s*([A-Z]{2})\s*\)?(?![\w])", testo)
+    return bool(m and m[1] in _PROVINCE)
+
+
+def _nome_singolo_da_valutare(testo: str, entita: Entita) -> Entita | None:
+    """Una parola sola trovata dal modello: resta da mascherare solo se è un nome noto.
+
+    Il modello prende per nomi molte parole maiuscole isolate ("MINIMALE", "Pay", "Residuo").
+    Se la parola non è un nome o un cognome dell'elenco va tra i dati da valutare; dopo "a",
+    "ad", "in", "di" è quasi sempre un luogo ("registrato ad Alba") e si scarta.
+    """
+    if " " in entita.valore:
+        return entita
+    if _DOPO_PREPOSIZIONE.search(testo[max(0, entita.inizio - 6) : entita.inizio]):
+        return None
+    parola = entita.valore.casefold().rstrip(".")
+    if parola in elenco("nomi_propri.txt") or parola in elenco("cognomi.txt"):
+        return entita
+    return replace(
+        entita, azione=Azione.SEGNALA, nota="Possibile nome non riconosciuto: verificare."
+    )

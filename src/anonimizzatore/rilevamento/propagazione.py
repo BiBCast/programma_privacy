@@ -58,7 +58,13 @@ def applica(testo: str, entita: list[Entita]) -> list[Entita]:
         + r")(?![\w'’])",
         re.IGNORECASE,
     )
-    occupati = [(e.inizio, e.fine) for e in entita]
+    # Un "possibile nome" segnalato non blocca la propagazione: se è una persona nota va
+    # mascherato. Gli altri dati segnalati (un indirizzo, una P.IVA) invece sì.
+    occupati = [
+        (e.inizio, e.fine)
+        for e in entita
+        if not (e.tipo == Tipo.PERSONA and e.azione == Azione.SEGNALA)
+    ]
     luoghi = elenco("luoghi.txt")
     occorrenze = [
         m
