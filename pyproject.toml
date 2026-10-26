@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anonimizzatore"
+dynamic = ["version"]
+description = "Toglie i dati personali da PDF, Word e file di testo prima di darli a un'AI, tutto sul PC."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "spacy==3.8.16",
+    "it_core_news_md @ https://github.com/explosion/spacy-models/releases/download/it_core_news_md-3.8.0/it_core_news_md-3.8.0-py3-none-any.whl",
+    "pdfplumber==0.11.10",
+    "PyYAML==6.0.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "ruff==0.17.2",
+    "reportlab==5.1.0",
+    "pyinstaller==6.22.3",
+]
+
+[project.scripts]
+anonimizzatore = "anonimizzatore.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "anonimizzatore.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

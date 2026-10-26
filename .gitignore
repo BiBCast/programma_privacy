@@ -1,0 +1,14 @@
+# Documenti di analisi: restano in locale
+docs/
+
+# Ambiente Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Output di PyInstaller e Inno Setup (gli script stanno in packaging/)
+build/
+dist/
