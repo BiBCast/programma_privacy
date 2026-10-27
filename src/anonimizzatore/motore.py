@@ -6,7 +6,8 @@ Tutto avviene in memoria: nessuna connessione, nessun file scritto.
 
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 
 from anonimizzatore import __version__, elenchi_utente, pseudonimi
@@ -14,6 +15,7 @@ from anonimizzatore.elenchi_utente import ElenchiUtente
 from anonimizzatore.estrazione import estrai
 from anonimizzatore.rilevamento import (
     etichette,
+    identificativi,
     nomi,
     propagazione,
     regole,
@@ -61,6 +63,7 @@ def analizza(
     elenchi = elenchi_utente.carica() if elenchi is None else elenchi
     entita = [
         *regole.trova(testo),
+        *identificativi.trova(testo),
         *etichette.trova(testo),
         *nomi.trova(testo),
         *_sempre_da_mascherare(testo, elenchi.sempre),
@@ -69,15 +72,17 @@ def analizza(
     # Dopo la propagazione tutte le persone sono note: si decide di chi sono P.IVA e indirizzi.
     entita = vicinanza.applica(testo, entita)
     entita += _codici_sulla_riga_della_persona(testo, entita)
+    entita += _indirizzi_web_con_un_nome(testo, entita)
     entita += _mai_da_mascherare(testo, elenchi.mai)
     entita += sensibili.trova(testo, elenchi.sensibili)
     entita += nomi.possibili(testo, entita)  # rete di sicurezza
     entita += _incerte(testo, incerti)  # parole lette male dall'OCR, per ultime
     if letto_con_ocr:
         entita += _iniziale_letta_male(testo, entita)
-    scelte = risoluzione.risolvi(entita)
+    scelte, avviso_minori = _minori(risoluzione.risolvi(entita))
     segnaposto = pseudonimi.assegna(scelte)
-    return Analisi(testo, tuple(map(Dato, scelte, segnaposto)), tuple(avvisi))
+    avvisi = (*avvisi, avviso_minori) if avviso_minori else tuple(avvisi)
+    return Analisi(testo, tuple(map(Dato, scelte, segnaposto)), avvisi)
 
 
 def analizza_file(percorso: str | Path, elenchi: ElenchiUtente | None = None) -> Analisi:
@@ -158,6 +163,56 @@ def _incerte(testo: str, incerti: tuple[tuple[int, int], ...]) -> list[Entita]:
                 )
             )
     return trovate
+
+
+_NOTA_MINORE = "Dati di un minore (art. 8 GDPR): controlla con la massima attenzione."
+
+
+def _minori(entita: list[Entita], oggi: date | None = None) -> tuple[list[Entita], str]:
+    """Un codice fiscale di chi ha meno di 18 anni riceve una nota, e l'analisi un avviso."""
+    oggi = oggi or date.today()
+    trovati = False
+    risultato = []
+    for e in entita:
+        nascita = (
+            regole.data_dal_codice_fiscale(e.valore) if e.tipo == Tipo.CODICE_FISCALE else None
+        )
+        if nascita:
+            giorno, mese, anno = nascita
+            # Due cifre per l'anno: si sceglie il secolo più recente che non sta nel futuro.
+            anno += 2000 if 2000 + anno <= oggi.year else 1900
+            eta = oggi.year - anno - ((oggi.month, oggi.day) < (mese, giorno))
+            if 0 <= eta < 18:
+                e = replace(e, nota=_NOTA_MINORE)
+                trovati = True
+        risultato.append(e)
+    avviso = (
+        "Il documento contiene il codice fiscale di un minore: i dati dei minori meritano "
+        "un'attenzione particolare (art. 8 GDPR)."
+        if trovati
+        else ""
+    )
+    return risultato, avviso
+
+
+_URL = re.compile(r"(?i)(?:https?://|www\.)[^\s<>\"')]+")
+
+
+def _indirizzi_web_con_un_nome(testo: str, entita: list[Entita]) -> list[Entita]:
+    """Un indirizzo web che contiene il nome di una persona trovata ("…/mario-rossi") la
+    identifica: si maschera come identificativo online."""
+    persone = [e for e in entita if e.tipo == Tipo.PERSONA and e.azione == Azione.MASCHERA]
+    parole = {p for e in persone for p in propagazione.chiave_di(e) if len(p) >= 4}
+    occupati = [(e.inizio, e.fine) for e in entita if e.azione == Azione.MASCHERA]
+    trovati = []
+    for m in _URL.finditer(testo):
+        indirizzo = m[0].casefold()
+        libero = not any(a < m.end() and m.start() < b for a, b in occupati)
+        if libero and any(p in indirizzo for p in parole):
+            trovati.append(
+                Entita(m.start(), m.end(), Tipo.ID_ONLINE, m[0], "regola", Priorita.REGOLA)
+            )
+    return trovati
 
 
 _NUMERO_ISOLATO = re.compile(r"(?<![\w.,/-])\d{4,10}(?![\w.,/-])")

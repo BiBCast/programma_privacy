@@ -10,7 +10,11 @@ from collections.abc import Hashable
 from anonimizzatore.rilevamento.modelli import Azione, Entita, Tipo
 from anonimizzatore.rilevamento.propagazione import chiave_di
 
-_CODICI = {Tipo.CODICE_FISCALE, Tipo.IBAN, Tipo.PARTITA_IVA, Tipo.DOCUMENTO, Tipo.MATRICOLA}
+_CODICI = {
+    Tipo.CODICE_FISCALE, Tipo.IBAN, Tipo.PARTITA_IVA, Tipo.DOCUMENTO, Tipo.MATRICOLA,
+    Tipo.CODICE_CLIENTE, Tipo.CONTO, Tipo.CARTA, Tipo.TESSERA_SANITARIA, Tipo.TARGA,
+    Tipo.PROCEDIMENTO,
+}  # fmt: skip
 
 
 def chiave(entita: Entita) -> Hashable:
@@ -23,7 +27,7 @@ def chiave(entita: Entita) -> Hashable:
     if entita.tipo == Tipo.TELEFONO:
         cifre = re.sub(r"\D", "", valore)
         return re.sub(r"^(?:0039|39)(?=\d{9,10}$)", "", cifre)
-    if entita.tipo == Tipo.EMAIL:
+    if entita.tipo in (Tipo.EMAIL, Tipo.ID_ONLINE):
         return valore.lower()
     if entita.tipo == Tipo.DATA_NASCITA:
         # "01/03/1975" e "1.3.1975" sono la stessa data; "1 marzo 1975" resta distinta.
