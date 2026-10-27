@@ -21,7 +21,8 @@ _CONTESTO_SEDE = re.compile(
     r"(?i)(?<![\w])(?:con\s+sede|sede\s+(?:legale|operativa|amministrativa|sociale)"
     r"|s\.r\.l\.?|srl|s\.p\.a\.?|spa|s\.n\.c\.?|snc|s\.a\.s\.?|sas)(?![\w])"
 )
-_DA_DECIDERE = {Tipo.PARTITA_IVA, Tipo.INDIRIZZO}
+# Il codice fiscale qui è solo quello di 11 cifre: gli altri nascono già da mascherare.
+_DA_DECIDERE = {Tipo.PARTITA_IVA, Tipo.INDIRIZZO, Tipo.CODICE_FISCALE}
 
 
 def applica(testo: str, entita: list[Entita]) -> list[Entita]:

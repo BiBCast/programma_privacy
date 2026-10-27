@@ -14,8 +14,15 @@ class Tipo(StrEnum):
     LUOGO_NASCITA = "LUOGO_NASCITA"
     DOCUMENTO = "DOCUMENTO"
     MATRICOLA = "MATRICOLA"
-    CODICE_CLIENTE = "CODICE_CLIENTE"  # codice cliente, conto contrattuale, POD, PDR
+    CODICE_CLIENTE = "CODICE_CLIENTE"  # codice cliente, conto contrattuale, POD, PDR, polizza
     CONTO = "CONTO"  # numero di conto corrente senza IBAN
+    CARTA = "CARTA"  # carta di pagamento
+    TESSERA_SANITARIA = "TESSERA_SANITARIA"
+    TARGA = "TARGA"
+    PROCEDIMENTO = "PROCEDIMENTO"  # numero di ruolo o di procedimento (R.G., R.G.N.R.)
+    ID_ONLINE = "ID_ONLINE"  # indirizzo IP, profilo social, URL con un nome
+    ETA = "ETA"
+    DATA_MORTE = "DATA_MORTE"
     # Dai "sempre da mascherare" dell'utente che non sono nomi di persona.
     DATO = "DATO"
     # Categorie particolari (art. 9 GDPR) e dati giudiziari (art. 10): solo segnalati.
