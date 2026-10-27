@@ -9,18 +9,53 @@
 #
 # Elenco base curato dal responsabile del programma. Ogni utente può aggiungere le sue parole
 # dalla finestra degli elenchi personali.
+#
+# BOZZA del 27/10/2026: le voci estese vanno riviste da chi conosce i documenti (consulente del
+# lavoro, ufficio legale, DPO). Restano fuori apposta le parole troppo ambigue: "lega" (anche
+# lega metallica), "PD" (anche la provincia di Padova), "cristian*" (anche un nome proprio),
+# "farmac*" (anche "farmacia"), "ereditari*" (anche "beni ereditari" nelle successioni).
 
 DATO_SALUTE:
+  # Generali
   - malatti*
   - infortun*
   - ricover*
+  - degenz*
+  - day hospital
+  - pronto soccorso
   - diagnos*
+  - prognos*
+  - referto
+  - referti
+  - cartella clinica
   - certificat* medic*
   - visita medica
   - visite mediche
+  - esami clinici
+  - analisi del sangue
+  - intervento chirurgico
+  - interventi chirurgici
+  - operazion* chirurgic*
+  - terapi*
+  - patologi*
+  - riabilitazion*
+  - fisioterapi*
+  # Invalidità, disabilità, idoneità al lavoro
   - invalidit*
   - disabil*
   - handicap
+  - inabilit*
+  - non autosufficien*
+  - indennità di accompagnamento
+  - assegno di invalidità
+  - pensione di invalidità
+  - commissione medica
+  - medico competente
+  - idoneità con limitazioni
+  - inidone*
+  - malattia professionale
+  - esenzione ticket
+  - codice di esenzione
   - legge 104
   - l. 104
   - l.104
@@ -29,20 +64,74 @@ DATO_SALUTE:
   - categori* protett*
   - l. 68/99
   - legge 68/99
+  # Malattie e condizioni
+  - diabet*
+  - tumor*
+  - neoplas*
+  - oncolog*
+  - cancro
+  - leucemi*
+  - chemioterapi*
+  - radioterapi*
+  - cardiopati*
+  - infarto
+  - ictus
+  - epiless*
+  - sclerosi
+  - alzheimer
+  - parkinson
+  - demenza
+  - dialisi
+  - hiv
+  - aids
+  - epatite
+  - celiachia
+  - allergi*
+  - intolleranz*
+  # Salute mentale
+  - depression*
+  - psichiatr*
+  - psicoterap*
+  - disturb* psichic*
+  - disturb* d'ansia
+  - schizofreni*
+  - disturb* bipolar*
+  - autismo
+  - anoressi*
+  - bulimi*
+  - psicofarmac*
+  - antidepressiv*
+  - ansiolitic*
+  # Dipendenze
+  - tossicodipenden*
+  - alcoldipenden*
+  - alcolism*
+  - ludopatia
+  - gioco d'azzardo patologico
+  - SerD
+  - SERT
+  - metadone
+  # Gravidanza e procreazione
   - gravidanz*
   - maternità obbligatoria
   - congedo di maternità
-  - terapi*
-  - patologi*
-  - tossicodipenden*
-  - alcoldipenden*
+  - interruzione volontaria di gravidanza
+  - aborto
+  - procreazione medicalmente assistita
+  - fecondazione assistita
 
 DATO_SINDACALE:
   - trattenut* sindacal*
+  - ritenut* sindacal*
   - quot* sindacal*
   - contribut* sindacal*
+  - delega sindacale
   - permess* sindacal*
+  - assemblea sindacale
+  - delegat* sindacal*
+  - rappresentant* sindacal*
   - iscritt* al sindacato
+  - iscrizione al sindacato
   - RSU
   - RSA
   - CGIL
@@ -51,48 +140,167 @@ DATO_SINDACALE:
   - UGL
   - USB
   - FIOM
+  - FIM
+  - UILM
+  - FILCAMS
+  - FISASCAT
+  - UILTUCS
+  - COBAS
+  - CUB
 
 DATO_POLITICO:
   - aspettativa per mandato elettivo
   - mandato elettivo
+  - cariche elettive
+  - permess* per cariche pubbliche
   - iscrizione a un partito
   - iscritt* al partito
+  - tessera del partito
+  - militante
   - carica politica
+  - opinioni politiche
+  - Partito Democratico
+  - Fratelli d'Italia
+  - Forza Italia
+  - Movimento 5 Stelle
+  - Movimento Cinque Stelle
+  - Alleanza Verdi e Sinistra
+  - Italia Viva
+  - Rifondazione Comunista
 
 DATO_RELIGIOSO:
   - festività religios*
   - confessione religiosa
-  - matrimonio concordatario
   - credo religioso
+  - matrimonio concordatario
+  - cattolic*
+  - musulman*
+  - islamic*
+  - ebraic*
+  - ebre*
+  - evangelic*
+  - protestant*
+  - ortodoss*
+  - testimoni di geova
+  - testimone di geova
+  - buddist*
+  - buddhist*
+  - induist*
+  - valdese
+  - battesimo
+  - cresima
+  - prima comunione
+  - ramadan
+  - kosher
+  - halal
+  - ora di religione
+  - insegnamento della religione
 
 DATO_SESSUALE:
   - unione civile
   - unioni civili
   - orientamento sessuale
+  - vita sessuale
+  - omosessual*
+  - bisessual*
+  - transgender
+  - transessual*
+  - gay
+  - lesbic*
+  - lgbt*
+  - identità di genere
+  - rettificazione di attribuzione di sesso
 
 DATO_ETNICO:
   - origine etnica
   - etnia
   - appartenenza etnica
   - origine razziale
+  - minoranza etnica
+  - razza
+  - razziale
+  - sinti
 
 DATO_BIOMETRICO:
   - test genetic*
   - dna
+  - profilo genetico
+  - mappatura genetica
+  - test di paternità
+  - malattia genetica
+  - malattie genetiche
   - impronte digitali
+  - impronta digitale
+  - riconoscimento facciale
   - dati biometrici
 
 DATO_GIUDIZIARIO:
+  # Procedimenti e atti
   - procediment* penal*
+  - processo penale
   - imputat*
   - indagat*
   - condann*
   - sentenz* penal*
+  - decreto penale
+  - rinvio a giudizio
+  - avviso di garanzia
+  - informazione di garanzia
+  - querela
+  - denuncia penale
+  - precedenti penali
   - casellario giudiziale
   - carichi pendenti
   - reato
   - reati
+  - codice penale
+  - cod. pen.
+  - c.p.
+  - c.p.p.
+  - codice di procedura penale
+  # Misure e pene
   - misur* cautelar*
-  - patteggiament*
   - custodia cautelare
   - arresti domiciliari
+  - detenzione domiciliare
+  - obbligo di firma
+  - obbligo di dimora
+  - divieto di avvicinamento
+  - affidamento in prova
+  - messa alla prova
+  - sorveglianza speciale
+  - foglio di via
+  - daspo
+  - patteggiament*
+  - reclusione
+  - pena detentiva
+  - detenut*
+  - carcere
+  # Reati frequenti
+  - furto
+  - rapina
+  - truffa
+  - estorsione
+  - lesioni personali
+  - omicidio
+  - atti persecutori
+  - stalking
+  - maltrattamenti
+  - violenza sessuale
+  - spaccio
+  - stupefacent*
+  - appropriazione indebita
+  - ricettazione
+  - riciclaggio
+  - bancarotta
+  - guida in stato di ebbrezza
+  - omissione di soccorso
+  - resistenza a pubblico ufficiale
+  - diffamazione
+  - falso in atto pubblico
+  - peculato
+  - corruzione
+  - concussione
+  - abuso d'ufficio
+  - porto abusivo d'armi
+  - violazione degli obblighi di assistenza familiare
